@@ -12,3 +12,6 @@ __pycache__/
 .cache/
 .venv/
 venv/
+
+# Generated videos
+*.mp4

@@ -56,7 +56,7 @@ class DLSVelocityPlanner:
 
     # ------------------------------ init ---------------------------------- #
     def __init__(self,model,data,kd: float = 5.0,site_name: str = "right_center",damping: float = 1e-2,
-                 gripper_cfg: list[dict] | None = None,for_multi=False):
+                 gripper_cfg: list[dict] | None = None,for_multi=False, actuator_mode: str = "torque"):
         
         
         self.model     = model
@@ -65,6 +65,9 @@ class DLSVelocityPlanner:
         self.damping   = damping
         self.site_id   = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE,site_name)
         self.for_multi = for_multi
+        self.actuator_mode = actuator_mode
+        if self.actuator_mode not in {"torque", "position"}:
+            raise ValueError(f'Unsupported actuator_mode "{actuator_mode}". Use "torque" or "position".')
 
         # Extract actuator IDs from gripper_cfg
         if gripper_cfg is not None:
@@ -194,6 +197,17 @@ class DLSVelocityPlanner:
 
 
     def _send_torque(self, dq):
+        if self.actuator_mode == "position":
+            dt = self.model.opt.timestep
+            for i in range(self.ctrl.num_actuators):
+                if i in self.ctrl.gripper_ids:
+                    continue
+                self.data.ctrl[i] += dq[i] * dt
+                if self.model.actuator_ctrllimited[i]:
+                    lo, hi = self.model.actuator_ctrlrange[i]
+                    self.data.ctrl[i] = np.clip(self.data.ctrl[i], lo, hi)
+            return self.data.ctrl.copy()
+
         if self.for_multi:
             self.ctrl.set_velocity_target(dq)
             grav = np.zeros(self.model.nu)
@@ -399,4 +413,3 @@ class MultiDLSVelocityPlanner:
 #         # just call one planner’s controller callback
 #         # (they all do the same gravity comp)
 #         self.planners[0].ctrl.control_callback(self.model, self.data)
-
