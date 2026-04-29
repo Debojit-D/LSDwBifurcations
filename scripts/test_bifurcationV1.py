@@ -5,7 +5,7 @@ import csv
 from dataclasses import dataclass
 
 RECORD = False
-RECORD_DATA = True
+RECORD_DATA = False
 CLOSE_SIMULATION = False
 
 if RECORD:
